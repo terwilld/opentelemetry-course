@@ -14,6 +14,24 @@ services:
     networks:
       - observability
     restart: unless-stopped
+  loki:
+    image: grafana/loki:3.6.6
+    container_name: loki
+    user: root
+    command:
+      - '-config.file=/etc/loki/loki.yaml'
+      - '-target=all'
+    volumes:
+      - ./loki-config.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+      - loki-wal:/wal
+    ports:
+      - '3100:3100'
+    networks:
+      - observability
+    restart: unless-stopped
 
 volumes:
   prometheus-data:
+  loki-data:
+  loki-wal:
