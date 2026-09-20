@@ -47,16 +47,7 @@ services:
     networks:
       - observability
     restart: unless-stopped
-  trace-gen:
-    build:
-      context: .
-      dockerfile: Dockerfile.trace-gen
-    container_name: trace-gen
-    depends_on:
-      - tempo
-    networks:
-      - observability
-    restart: unless-stopped
+
 volumes:
   prometheus-data:
   loki-data:
