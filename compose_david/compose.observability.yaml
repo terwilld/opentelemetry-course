@@ -30,8 +30,36 @@ services:
     networks:
       - observability
     restart: unless-stopped
-
+  tempo:
+    image: grafana/tempo:2.10.1
+    container_name: tempo
+    command:
+      - '-config.file=/etc/tempo/tempo.yaml'
+      - '-target=all'
+    volumes:
+      - ./tempo-config.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+      - tempo-metrics-storage:/var/tempo/metrics-storage
+    ports:
+      - '3200:3200'
+      - '4317:4317'
+      - '4318:4318'
+    networks:
+      - observability
+    restart: unless-stopped
+  trace-gen:
+    build:
+      context: .
+      dockerfile: Dockerfile.trace-gen
+    container_name: trace-gen
+    depends_on:
+      - tempo
+    networks:
+      - observability
+    restart: unless-stopped
 volumes:
   prometheus-data:
   loki-data:
   loki-wal:
+  tempo-data:
+  tempo-metrics-storage:

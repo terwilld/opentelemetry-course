@@ -1,0 +1,15 @@
+FROM python:3.11-alpine
+
+WORKDIR /app
+
+# Copy pre-installed packages
+COPY site-packages/ /usr/local/lib/python3.11/site-packages/
+
+# Copy the trace generator script
+COPY test_scripts/generate-traces.py .
+
+# Set Tempo endpoint
+ENV TEMPO_HTTP_ENDPOINT=http://tempo:4318
+
+# Run the script
+CMD ["python3", "generate-traces.py"]
