@@ -39,14 +39,44 @@ services:
     volumes:
       - ./tempo-config.yaml:/etc/tempo/tempo.yaml:ro
       - tempo-data:/var/tempo
+      - tempo-metrics-storage:/var/tempo/metrics-storage
     ports:
       - '3200:3200'
+      - '4317:4317'
+      - '4318:4318'
     networks:
       - observability
     restart: unless-stopped
+  trace-gen:
+    build:
+      context: .
+      dockerfile: Dockerfile.trace-gen
+    container_name: trace-gen
+    depends_on:
+      - tempo
+    networks:
+      - observability
+    restart: unless-stopped
+  jaeger-ui:
+    image: jaegertracing/jaeger-query:latest
+    container_name: jaeger-ui
+    ports:
+      - '16686:16686'
+    environment:
+      QUERY_BASE_PATH: /
+      QUERY_PORT: "16686"
+    command:
+      - --query.grpc.host=tempo
+      - --query.grpc.port=4317
+    networks:
+      - observability
+    restart: unless-stopped
+    depends_on:
+      - tempo
 
 volumes:
   prometheus-data:
   loki-data:
   loki-wal:
   tempo-data:
+  tempo-metrics-storage:

@@ -21,8 +21,21 @@ storage:
 query_frontend:
   search:
     max_duration: 0s
+  jaeger_query:
+    enabled: true
 ingester:
   max_block_duration: 5m
+
+metrics_generator:
+  storage:
+    path: /var/tempo/metrics-storage
+  processor:
+    service_graphs: {}
+    span_metrics:
+      dimensions:
+        - http.method
+        - http.status_code
+        - service.name
 
 compactor:
   compaction:
