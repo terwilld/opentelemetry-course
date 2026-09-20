@@ -57,23 +57,6 @@ services:
     networks:
       - observability
     restart: unless-stopped
-  jaeger-ui:
-    image: jaegertracing/jaeger-query:latest
-    container_name: jaeger-ui
-    ports:
-      - '16686:16686'
-    environment:
-      QUERY_BASE_PATH: /
-      QUERY_PORT: "16686"
-    command:
-      - --query.grpc.host=tempo
-      - --query.grpc.port=4317
-    networks:
-      - observability
-    restart: unless-stopped
-    depends_on:
-      - tempo
-
 volumes:
   prometheus-data:
   loki-data:
