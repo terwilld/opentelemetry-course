@@ -2,13 +2,14 @@ FROM python:3.11-alpine
 
 WORKDIR /app
 
-# Copy pre-installed packages
-COPY site-packages/ /usr/local/lib/python3.11/site-packages/
+# Copy requirements and install dependencies
+COPY test_scripts/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the trace generator script
 COPY test_scripts/generate-traces.py .
 
-# Set Tempo endpoint
+# Set Tempo endpoint (HTTPExporter adds /v1/traces automatically)
 ENV TEMPO_HTTP_ENDPOINT=http://tempo:4318
 
 # Run the script
