@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 # Configuration (check env vars first, fall back to localhost)
 import os
-TEMPO_GRPC_ENDPOINT = os.getenv("TEMPO_GRPC_ENDPOINT", "http://localhost:4317")
 TEMPO_HTTP_ENDPOINT = os.getenv("TEMPO_HTTP_ENDPOINT", "http://localhost:4318")
 TRACE_INTERVAL_MIN = 2  # seconds
 TRACE_INTERVAL_MAX = 5  # seconds
@@ -70,8 +69,8 @@ def create_tracer_provider():
 
     provider = TracerProvider(resource=resource)
 
-    # Add HTTP exporter to Tempo
-    http_exporter = HTTPExporter(endpoint=TEMPO_HTTP_ENDPOINT)
+    # Add HTTP exporter to Tempo (endpoint should be base URL, exporter adds /v1/traces)
+    http_exporter = HTTPExporter(endpoint=f"{TEMPO_HTTP_ENDPOINT}/v1/traces")
     provider.add_span_processor(BatchSpanProcessor(http_exporter))
 
     trace.set_tracer_provider(provider)
@@ -148,7 +147,7 @@ def main():
     provider = create_tracer_provider()
     tracer = trace.get_tracer(__name__)
 
-    logger.info(f"Starting trace generation (gRPC: {TEMPO_GRPC_ENDPOINT}, HTTP: {TEMPO_HTTP_ENDPOINT})")
+    logger.info(f"Starting trace generation (HTTP: {TEMPO_HTTP_ENDPOINT})")
     logger.info(f"Error rate: {ERROR_RATE*100:.0f}% | Interval: {TRACE_INTERVAL_MIN}-{TRACE_INTERVAL_MAX}s")
     logger.info("Press Ctrl+C to stop.\n")
 
