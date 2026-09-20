@@ -63,7 +63,7 @@ ERROR_MESSAGES = [
 def create_tracer_provider():
     """Create and configure TracerProvider with HTTP exporter to Tempo."""
     resource = Resource.create({
-        ResourceAttributes.SERVICE_NAME: "trace-generator",
+        ResourceAttributes.SERVICE_NAME: "api-service",
         ResourceAttributes.SERVICE_VERSION: "1.0.0",
     })
 
