@@ -1,0 +1,51 @@
+# Application Services
+# Translation app with frontend, worker, and Redis
+
+services:
+  redis:
+    image: redis:8.6.0-alpine
+    container_name: redis
+    ports:
+      - '6379:6379'
+    networks:
+      - app
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    image: lmacademy/web-translator-frontend:v1.1.0
+    container_name: frontend
+    ports:
+      - '3001:3000'
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3000
+      - LOG_LEVEL=info
+      - SOURCE_LANGUAGE=en
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app
+    restart: unless-stopped
+
+  worker:
+    image: lmacademy/web-translator-worker:v1.1.0
+    container_name: worker
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - LOG_LEVEL=info
+      - SOURCE_LANGUAGE=en
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app
+    restart: unless-stopped
+
