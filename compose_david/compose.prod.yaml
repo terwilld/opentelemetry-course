@@ -1,0 +1,22 @@
+# Production Environment
+# Usage: docker compose -f compose.prod.yaml up
+
+include:
+  - compose.observability.yaml
+  - compose.app.yaml
+
+services:
+  frontend:
+    image: lmacademy/web-translator-frontend:v1.1.0
+
+  worker:
+    image: lmacademy/web-translator-worker:v1.1.0
+
+networks:
+  observability:
+    driver: bridge
+    name: observability
+  app:
+    driver: bridge
+    name: app
+
