@@ -1,6 +1,9 @@
 TODOs
 .DS_Store
 
+# App versions (external source code, not tracked in course repo)
+app-versions/code/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
