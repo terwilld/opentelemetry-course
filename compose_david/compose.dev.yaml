@@ -3,6 +3,7 @@
 
 include:
   - compose.observability.yaml
+  - compose.app.yaml
 
 services:
   frontend:
