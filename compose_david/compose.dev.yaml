@@ -1,40 +1,84 @@
-# Development Environment
-# Usage: docker compose -f compose.dev.yaml up
+# Development Environment (hot reload, built from local source)
+# Usage: docker compose -f compose.dev.yaml up --build
+# Requires: ~/.ssh/artifactory_token and ~/corp-ca-bundle.pem (see docker/ Dockerfiles)
 
 include:
   - compose.observability.yaml
 
 services:
+  redis:
+    image: redis:8.6.0-alpine
+    container_name: redis
+    ports:
+      - '6379:6379'
+    networks:
+      - app
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   frontend:
     build:
       context: ../app-versions/code/frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: ../../../compose_david/docker/frontend.Dockerfile
       target: development
+      secrets:
+        - art
+    container_name: frontend
+    ports:
+      - '3001:3000'
     volumes:
-      # Mount source code for hot reload
       - ../app-versions/code/frontend/src:/app/src:ro
       - ../app-versions/code/frontend/tsconfig.json:/app/tsconfig.json:ro
     environment:
       - NODE_ENV=development
       - LOG_LEVEL=debug
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3000
+      - SOURCE_LANGUAGE=en
     command: npm run dev
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app
+    restart: unless-stopped
 
   worker:
     build:
-      context: ../app-versions/code/worker
-      dockerfile: Dockerfile.dev
+      context: ./docker/worker
+      additional_contexts:
+        worker: ../app-versions/code/worker
+        models: ..
+      secrets:
+        - art
+        - cabundle
+    container_name: worker
     volumes:
-      # Mount source code for hot reload
       - ../app-versions/code/worker/src:/app/src:ro
-      # Preserve translation models (large, slow to download)
-      - worker-models:/root/.local/share/argos-translate
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=debug
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SOURCE_LANGUAGE=en
     command: watchmedo auto-restart --directory=./src --pattern="*.py" --recursive -- python -m src.main
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app
+    restart: unless-stopped
 
-volumes:
-  worker-models:
+secrets:
+  art:
+    file: ${HOME}/.ssh/artifactory_token
+  cabundle:
+    file: ${HOME}/corp-ca-bundle.pem
 
 networks:
   observability:
@@ -43,4 +87,3 @@ networks:
   app:
     driver: bridge
     name: app
-
