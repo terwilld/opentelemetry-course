@@ -35,7 +35,8 @@ RUN for p in /root/.local/share/argos-translate/packages/*/; do \
       cp /tmp/stanza-models/mwt_combined.pt "$p/stanza/en/mwt/combined.pt"; \
     done && rm -rf /tmp/stanza-models
 
-# Source code is mounted as a volume
+# Source code: copied in for compose.build.yaml, mounted over it by compose.dev.yaml
+COPY --from=worker src ./src
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1

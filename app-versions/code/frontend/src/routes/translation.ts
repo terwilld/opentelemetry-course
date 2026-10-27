@@ -14,6 +14,13 @@ import type {
 import { SUPPORTED_LANGUAGES } from '../types.js';
 import { logger } from '../logger.js';
 
+import {
+  translationRequestsCounter,
+  jobsEnqueuedCounter,
+  requestDuration,
+  validationErrorsCounter,
+} from '../metrics';
+
 export interface TranslationRouterDeps {
   queueService: QueueService;
   sseManager: SSEManager;
@@ -25,6 +32,7 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
 
   // POST /api/translate - Submit translation request
   router.post('/', async (req: Request, res: Response) => {
+    const start = Date.now();
     try {
       const body = req.body as TranslateRequest;
 
@@ -35,6 +43,7 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
           ip: req.ip,
           targetLanguages: body.targetLanguages,
         });
+        validationErrorsCounter.add(1, { error_type: 'empty_text' });
         res.status(400).json({
           error: 'Text is required',
           details: 'Text must be a non-empty string',
@@ -52,6 +61,7 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
           providedValue: body.targetLanguages,
           ip: req.ip,
         });
+        validationErrorsCounter.add(1, { error_type: 'invalid_languages' });
         res.status(400).json({
           error: 'At least one target language is required',
           details: 'targetLanguages must be a non-empty array',
@@ -123,7 +133,7 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
 
         // Enqueue job
         await queueService.enqueueJob(job);
-
+        jobsEnqueuedCounter.add(1, { target_language: targetLanguage });
         logger.info('Translation job enqueued', {
           job_id: jobId,
           session_id: sessionId,
@@ -148,6 +158,11 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
         jobs_count: jobsList.length,
         status: 'queued',
       });
+      // Track successful request
+      translationRequestsCounter.add(1, {
+        status: 'success',
+        language_count: body.targetLanguages.length.toString(),
+      });
 
       // Return response
       const response: TranslateResponse = {
@@ -159,7 +174,9 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
           status: 'queued',
         })),
       };
-
+      requestDuration.record(Date.now() - start, {
+        target_language_count: body.targetLanguages.length.toString(),
+      });
       res.status(201).json(response);
     } catch (error) {
       logger.error('Error creating translation session', {

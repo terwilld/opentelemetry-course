@@ -1,0 +1,84 @@
+# Full rebuild, no host links (code is baked into the images; no hot reload)
+# Usage: docker compose -f compose.build.yaml up -d --build
+# Requires: ~/.ssh/artifactory_token and ~/corp-ca-bundle.pem (see docker/ Dockerfiles)
+# Uses the same container names and ports as compose.dev.yaml, so run one or the other.
+
+include:
+  - compose.observability.yaml
+
+services:
+  redis:
+    image: redis:8.6.0-alpine
+    container_name: redis
+    ports:
+      - '6379:6379'
+    networks:
+      - app
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  frontend:
+    image: translation-frontend:build
+    build:
+      context: ../app-versions/code/frontend
+      dockerfile: ../../../compose_david/docker/frontend.Dockerfile
+      target: production
+      secrets:
+        - art
+    container_name: frontend
+    ports:
+      - '3001:3000'
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PORT=3000
+      - LOG_LEVEL=info
+      - SOURCE_LANGUAGE=en
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app
+    restart: unless-stopped
+
+  worker:
+    image: translation-worker:build
+    build:
+      context: ./docker/worker
+      additional_contexts:
+        worker: ../app-versions/code/worker
+        models: ..
+      secrets:
+        - art
+        - cabundle
+    container_name: worker
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=info
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SOURCE_LANGUAGE=en
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app
+    restart: unless-stopped
+
+secrets:
+  art:
+    file: ${HOME}/.ssh/artifactory_token
+  cabundle:
+    file: ${HOME}/corp-ca-bundle.pem
+
+networks:
+  observability:
+    driver: bridge
+    name: observability
+  app:
+    driver: bridge
+    name: app
