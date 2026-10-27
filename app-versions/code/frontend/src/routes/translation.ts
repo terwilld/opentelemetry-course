@@ -12,12 +12,6 @@ import type {
   TranslationSession,
 } from '../types.js';
 import { SUPPORTED_LANGUAGES } from '../types.js';
-import {
-  translationRequestsCounter,
-  jobsEnqueuedCounter,
-  requestDuration,
-  validationErrorsCounter,
-} from '../metrics.js';
 import { logger } from '../logger.js';
 
 export interface TranslationRouterDeps {
@@ -31,14 +25,11 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
 
   // POST /api/translate - Submit translation request
   router.post('/', async (req: Request, res: Response) => {
-    const start = Date.now();
-
     try {
       const body = req.body as TranslateRequest;
 
       // Validate text
       if (!body.text || typeof body.text !== 'string' || !body.text.trim()) {
-        validationErrorsCounter.add(1, { error_type: 'empty_text' });
         logger.warn('Validation failed: empty text', {
           reason: 'empty_text',
           ip: req.ip,
@@ -56,7 +47,6 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
         !Array.isArray(body.targetLanguages) ||
         body.targetLanguages.length === 0
       ) {
-        validationErrorsCounter.add(1, { error_type: 'invalid_languages' });
         logger.warn('Validation failed: invalid languages', {
           reason: 'invalid_languages',
           providedValue: body.targetLanguages,
@@ -71,7 +61,6 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
 
       // Check max languages
       if (body.targetLanguages.length > 3) {
-        validationErrorsCounter.add(1, { error_type: 'too_many_languages' });
         logger.warn('Validation failed: too many languages', {
           reason: 'too_many_languages',
           requestedCount: body.targetLanguages.length,
@@ -91,7 +80,6 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
       );
 
       if (unsupportedLanguages.length > 0) {
-        validationErrorsCounter.add(1, { error_type: 'unsupported_language' });
         logger.warn('Validation failed: unsupported language', {
           reason: 'unsupported_language',
           unsupportedLanguages: unsupportedLanguages,
@@ -135,7 +123,6 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
 
         // Enqueue job
         await queueService.enqueueJob(job);
-        jobsEnqueuedCounter.add(1, { target_language: targetLanguage });
 
         logger.info('Translation job enqueued', {
           job_id: jobId,
@@ -155,17 +142,6 @@ export function createTranslationRouter(deps: TranslationRouterDeps): Router {
       };
 
       await queueService.saveSession(session);
-
-      // Track successful request
-      translationRequestsCounter.add(1, {
-        status: 'success',
-        language_count: body.targetLanguages.length.toString(),
-      });
-
-      // Track request duration
-      requestDuration.record(Date.now() - start, {
-        target_language_count: body.targetLanguages.length.toString(),
-      });
 
       logger.info('Translation session ready', {
         session_id: sessionId,
