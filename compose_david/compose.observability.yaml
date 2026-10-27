@@ -6,6 +6,7 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yaml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.time=15d'
+      - '--web.enable-remote-write-receiver'
     volumes:
       - ./prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
       - prometheus-data:/prometheus
@@ -84,6 +85,29 @@ services:
       - prometheus
       - loki
       - tempo
+  alloy:
+    image: grafana/alloy:v1.21.1
+    container_name: alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+    volumes:
+      - ./alloy-config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-data:/var/lib/alloy/data
+    ports:
+      - '12345:12345' # Alloy UI and its own metrics
+      - '14317:4317' # OTLP gRPC (Alloy)
+      - '14318:4318' # OTLP HTTP (Alloy)
+    networks:
+      - observability
+      - app
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
 volumes:
   prometheus-data:
   loki-data:
@@ -91,3 +115,4 @@ volumes:
   tempo-data:
   tempo-metrics-storage:
   grafana-data:
+  alloy-data:
