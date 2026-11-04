@@ -27,6 +27,7 @@ The course is built around a realistic async translation service (**Translation 
 .
 ├── app-versions/        # Versioned ZIP snapshots of the demo application
 ├── compose/             # Docker Compose files and observability stack configs
+├── compose_david/       # My working stack for the UKG network (see "My Working Setup" below)
 ├── k8s/                 # Kubernetes manifests (bonus section)
 └── labs/                # Step-by-step lab guides, organised by course section
     ├── section-setup/
@@ -88,5 +89,52 @@ The demo application evolves across the course. Each lab section references a sp
 | **v1.3.0** | Both frontend and worker fully instrumented — end-to-end observability | [frontend](https://hub.docker.com/r/lmacademy/web-translator-frontend) • [worker](https://hub.docker.com/r/lmacademy/web-translator-worker) |
 
 Pre-built Docker images are available for every version and are tagged accordingly (e.g. `lmacademy/web-translator-frontend:v1.3.0`). Images are built for both `linux/amd64` and `linux/arm64`.
+
+## 🛠️ My Working Setup (`compose_david/`)
+
+This fork is my own walk through the labs. The stack I actually run lives in [`compose_david/`](compose_david/) and differs from the course material in a few ways, mostly because of the corporate (UKG) network. Everything below is a summary of those changes.
+
+### Progress
+
+Each lab is one branch and one pull request (`lab-N-…`). Done so far:
+
+- Observability stack: Prometheus, Loki, Tempo, Grafana, OpenTelemetry Collector, and Grafana Alloy
+- Baseline translation app (no instrumentation) deployed and running
+- Frontend **metrics**: auto-instrumentation, then manual business metrics (`translation.*` counters and a duration histogram)
+- Frontend **traces**: auto-instrumentation (HTTP, Express, ioredis), exported to the Collector and then Tempo
+- In progress: manual traces (`lab-10-manual-traces`). The worker is not instrumented yet, so traces end at the Redis enqueue.
+
+### Compose files
+
+| File | Use |
+| ---- | --- |
+| `compose.observability.yaml` | The observability stack only (included by the others) |
+| `compose.dev.yaml` | Day-to-day: frontend and worker built locally, with `src/` bind-mounted for hot reload |
+| `compose.build.yaml` | Full rebuild with no host mounts (code baked into the images). Uses its own image tags (`translation-*:build`) so it doesn't overwrite the dev images. Same container names and ports as dev, so run one or the other |
+| `compose.yaml`, `compose.app.yaml`, `compose.prod.yaml` | The course's originals. They run the **upstream** `lmacademy/web-translator-*:v1.1.0` images, which do not include my network fixes |
+
+> **Watch out:** mixing compose files leaves you with the wrong image. If the worker fails with `CERTIFICATE_VERIFY_FAILED` against `raw.githubusercontent.com`, it is almost certainly the upstream image (started from `compose.yaml`). Recreate it from the dev file: `docker rm -f worker && docker compose -f compose.dev.yaml up -d --pull never worker`.
+
+### Network workarounds
+
+- **Docker Hub enforced sign-in:** pulls are blocked even for public images. Download with `skopeo`, `docker load` the tar, then use `--pull never`. Details are in `.claude/CLAUDE.md`.
+- **Artifactory:** npm and PyPI go through the UKG Artifactory proxy, using a token from `~/.ssh/artifactory_token` (passed as a build secret, never written to the image). Its curation policy blocks some versions, which is why the OpenTelemetry packages are on 0.217.0 / `auto-instrumentations-node` 0.75.0 and not the versions pinned in the lab text.
+- **TLS-intercepting proxy:** the worker image trusts the corporate CA bundle (`~/corp-ca-bundle.pem`, a build secret) through `SSL_CERT_FILE` and `REQUESTS_CA_BUNDLE`.
+- **Worker models:** Stanza models can't be fetched from GitHub or Hugging Face behind the proxy, so the committed `combined_nocharlm.pt` and `mwt_combined.pt` are copied into the image. Torch comes from the Artifactory proxy of the CPU wheel index.
+- **Frontend image:** multi-stage Dockerfile (`development`, `builder`, `production`) with the `production` stage used by `compose.build.yaml`.
+
+### Port map (host)
+
+| Port | Service |
+| ---- | ------- |
+| 3000 | Grafana |
+| 3001 | Frontend (container port 3000) |
+| 3100 / 3200 / 9090 | Loki / Tempo / Prometheus |
+| 4317, 4318 | Collector OTLP (gRPC, HTTP) |
+| 8888, 8889 | Collector own metrics, Prometheus exporter |
+| 12345, 14317, 14318 | Alloy UI, Alloy OTLP (gRPC, HTTP) |
+| 6379 | Redis |
+
+To run the frontend on the host (`npm start`) alongside the containers, use a free port such as `PORT=3002`. Port 3000 is Grafana.
 
 I'm looking forward to seeing you in the course!
