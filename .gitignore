@@ -362,3 +362,6 @@ vite.config.ts.timestamp-*
 .vite/
 # Added by ggshield
 .cache_ggshield
+
+# Local scratch files
+scratch_pad
