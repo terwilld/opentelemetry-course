@@ -137,4 +137,14 @@ Each lab is one branch and one pull request (`lab-N-…`). Done so far:
 
 To run the frontend on the host (`npm start`) alongside the containers, use a free port such as `PORT=3002`. Port 3000 is Grafana.
 
+```bash
+# Run the frontend on the host: free port, and point telemetry at the published Collector port
+# (the default `otel-collector` hostname only resolves inside the Docker network).
+# OTEL_SERVICE_NAME makes its traces distinguishable from the container's (default: translation-frontend).
+# Rebuild first (`npm run build`): `npm start` runs the compiled dist/, not src/.
+OTEL_SERVICE_NAME=translation-frontend-npm-start OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 PORT=3002 npm start
+```
+
+Find the host process's traces in Tempo with `{ resource.service.name = "translation-frontend-npm-start" }`.
+
 I'm looking forward to seeing you in the course!
