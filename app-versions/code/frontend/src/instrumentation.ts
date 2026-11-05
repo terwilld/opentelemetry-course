@@ -4,14 +4,18 @@ import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 
+const base = process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://otel-collector:4318';
+
+const serviceName = process.env.OTEL_SERVICE_NAME ?? 'translation-frontend';
+
 const sdk = new NodeSDK({
-    serviceName: 'translation-frontend',
+    serviceName,
     traceExporter: new OTLPTraceExporter({
-        url: 'http://otel-collector:4318/v1/traces',
+        url: `${base}/v1/traces`,
     }),
     metricReader: new PeriodicExportingMetricReader({
         exporter: new OTLPMetricExporter({
-            url: 'http://otel-collector:4318/v1/metrics',
+            url: `${base}/v1/metrics`,
         }),
         exportIntervalMillis: 10000,
     }),
